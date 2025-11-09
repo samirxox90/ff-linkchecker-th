@@ -48,6 +48,45 @@
             50% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
+        
+        /* --- V1.4 Animation (Flip/Pop - Request 3) --- */
+        .version-text {
+            /* Thai Red background with white text */
+            background-color: #A51931; 
+            /* Animation sequence */
+            animation: versionFlip 1s ease-out forwards, versionPulse 3s infinite 2s;
+            opacity: 0;
+            transform: rotateX(90deg);
+            transform-origin: center center;
+        }
+
+        @keyframes versionFlip {
+            0% { opacity: 0; transform: rotateX(90deg) scale(0.5); }
+            50% { transform: rotateX(-10deg); }
+            100% { opacity: 1; transform: rotateX(0deg) scale(1); }
+        }
+
+        @keyframes versionPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(165, 25, 49, 0.7); } /* #A51931 */
+            70% { box-shadow: 0 0 0 5px rgba(165, 25, 49, 0); }
+        }
+        
+        /* --- Next Update Animation (Shimmer - Request 4) --- */
+        .update-notice {
+            /* Base color for the notice */
+            background-color: #fffbeb; 
+            /* Gold Shimmer effect */
+            background: linear-gradient(90deg, #fffbeb 0%, #fff0b3 50%, #fffbeb 100%);
+            background-size: 200% auto;
+            /* Animation: updateShimmer */
+            animation: updateShimmer 4s infinite linear;
+        }
+        
+        @keyframes updateShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
 
         /* --- King Footer Animation Styles --- */
         .king-footer {
@@ -133,39 +172,82 @@
             pointer-events: none; /* Ensure no interaction while disabled */
         }
         
-        /* --- Notification Styles --- */
+        /* --- Notification Containers (Fixed Positioning) --- */
         .notification-container {
             position: fixed;
             top: 20px;
-            right: 20px;
             z-index: 1000;
             max-width: 300px;
         }
+        
+        /* LEFT Side Container (Pin/Unpin) */
+        #notification-container-left {
+            left: 20px;
+        }
+        
+        /* RIGHT Side Container (Success/Working) - NEW */
+        #notification-container-right {
+            right: 20px;
+        }
 
+
+        /* --- Notification Styles (Base) --- */
         .notification {
-            background-color: #10b981; /* green-500 */
             color: white;
             padding: 1rem;
             border-radius: 0.5rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             opacity: 0;
-            transform: translateX(100%);
             transition: opacity 0.5s ease-out, transform 0.5s ease-out;
             margin-top: 10px; /* Space between multiple notifications */
         }
+        
+        /* Slide in from LEFT (Pin/Unpin) */
+        .notification.slide-left {
+            transform: translateX(-100%); 
+        }
 
+        /* Slide in from RIGHT (Success) */
+        .notification.slide-right {
+            transform: translateX(100%); 
+        }
+
+        /* Show state (same for both slides, just sets transform: 0) */
         .notification.show {
             opacity: 1;
             transform: translateX(0);
+        }
+
+
+        /* --- Notification Colors --- */
+        .notification.bg-green-500 {
+            /* Base for success notification (Working) */
+            background-color: #10b981; /* green-500 */
+        }
+        
+        .notification.bg-yellow-500 {
+            /* Base for pin notification */
+            background-color: #f59e0b; /* yellow-500 (Gold/Pin theme) */
+        }
+        
+        .notification.bg-gray-500 {
+            /* Gray theme for unpin notification */
+            background-color: #6b7280; /* gray-500 (Unpin theme) */
         }
     </style>
 </head>
 <body class="bg-gray-50 h-full text-gray-900">
     <div class="container mx-auto p-4 md:p-8 max-w-2xl">
         <header class="mb-10 pt-4">
-            <h1 class="text-4xl font-extrabold tracking-tight animated-title">FF Link Checker TH</h1>
+            <div class="flex items-center gap-4">
+                <h1 class="text-4xl font-extrabold tracking-tight animated-title">FF Link Checker TH</h1>
+                <span id="version-display" class="version-text text-xl font-bold text-white px-2 py-1 rounded-md shadow-md">V1.2</span>
+            </div>
             <p class="text-lg text-gray-600 mt-2">
             <div id="user-info">Auth Status: Loading...</div>
+            <div id="update-notice" class="update-notice text-sm font-semibold text-gray-700 mt-4 p-2 border-l-4 border-yellow-400 rounded-lg">
+                Next Update: Date Not Decided
+            </div>
         </header>
 
         <section class="mb-10 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
@@ -214,8 +296,37 @@
         </div>
     </div>
     
-    <div id="notification-container" class="notification-container">
+    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 flex items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-transform duration-300 scale-100">
+            <h3 class="text-xl font-bold text-[#241F4D] mb-4">Edit Link Details</h3>
+            <form id="edit-link-form" class="flex flex-col gap-4">
+                <input type="hidden" id="edit-link-id">
+                
+                <label for="edit-link-title-input" class="text-sm font-medium text-gray-700">Link Title:</label>
+                <input type="text" id="edit-link-title-input" placeholder="Link Title" 
+                    class="p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-3 focus:ring-yellow-500 transition duration-150" required>
+                
+                <label for="edit-link-url-input" class="text-sm font-medium text-gray-700">URL:</label>
+                <input type="url" id="edit-link-url-input" placeholder="URL (e.g., https://example.com)" 
+                    class="p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-3 focus:ring-yellow-500 transition duration-150" required>
+                
+                <p id="edit-error-message" class="text-red-500 text-sm font-medium"></p>
+
+                <div class="flex justify-end space-x-3 mt-4">
+                    <button type="button" id="edit-cancel-btn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit" id="edit-save-btn" class="px-4 py-2 text-white bg-[#241F4D] rounded-lg hover:bg-[#3d336a] font-bold transition duration-150 shadow-md">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
+    
+    <div id="notification-container-left" class="notification-container"></div>
+    <div id="notification-container-right" class="notification-container"></div>
+
 
     <script type="module">
         // --- Firebase Imports ---
@@ -242,7 +353,6 @@
         // =====================================================================
         // CONFIGURATION: Set up for maximum portability (Host Anywhere)
         // =====================================================================
-        // Use a generic config as a default fallback for hosting outside Canvas.
         const DEFAULT_FIREBASE_CONFIG = {
             // UPDATED CONFIGURATION START
             apiKey: "AIzaSyDwR3uCH8jRQzjqp0SM_Vk1YmX0e2C7aoA",
@@ -251,26 +361,22 @@
             storageBucket: "my-link-checker-th-839fe.firebasestorage.app",
             messagingSenderId: "606190159603",
             appId: "1:606190159603:web:5d13459d1a29a30e79d986",
-            // measurementId is not needed for the core app functionality and is omitted for brevity.
             // UPDATED CONFIGURATION END
         };
-        const DEFAULT_APP_ID = "my-link-checker-th-839fe"; // Must match projectId above
+        const DEFAULT_APP_ID = "my-link-checker-th-839fe"; 
 
         let firebaseConfig;
         let appId;
 
-        // Prioritize internal environment variables if available
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : DEFAULT_APP_ID;
             } catch (e) {
-                // Fallback if parsing fails
                 firebaseConfig = DEFAULT_FIREBASE_CONFIG;
                 appId = DEFAULT_APP_ID;
             }
         } else {
-            // Use the hardcoded default for external hosting
             firebaseConfig = DEFAULT_FIREBASE_CONFIG;
             appId = DEFAULT_APP_ID;
         }
@@ -280,11 +386,12 @@
         let auth;
         let userId;
         let linksCollectionRef;
-        let currentDeleteCallback = null; // Stores the function to call on confirmation
-        let linksDataCache = []; // Cache to store the latest links data for the auto-checker
+        let currentDeleteCallback = null; 
+        let linksDataCache = []; 
+        let initialLoadComplete = false; 
         
-        // The interval for the auto-recheck (5 minutes = 300,000 milliseconds)
-        const AUTO_RECHECK_INTERVAL = 5 * 60 * 1000; 
+        // The interval for the auto-recheck (Updated to 1 minute)
+        const AUTO_RECHECK_INTERVAL = 60 * 1000; // 1 minute interval
 
         const linksContainer = document.getElementById('link-list');
         const addLinkForm = document.getElementById('add-link-form');
@@ -294,16 +401,25 @@
         const errorMessage = document.getElementById('error-message');
         const userInfoDisplay = document.getElementById('user-info');
         
-        // Modal elements
+        // Delete Modal elements
         const confirmationModal = document.getElementById('confirmation-modal');
         const modalLinkTitle = document.getElementById('modal-link-title');
         const confirmBtn = document.getElementById('confirm-btn');
         const cancelBtn = document.getElementById('cancel-btn');
         
-        // Notification element
-        const notificationContainer = document.getElementById('notification-container');
+        // Edit Modal elements
+        const editModal = document.getElementById('edit-modal');
+        const editLinkForm = document.getElementById('edit-link-form');
+        const editLinkIdInput = document.getElementById('edit-link-id');
+        const editLinkTitleInput = document.getElementById('edit-link-title-input');
+        const editLinkUrlInput = document.getElementById('edit-link-url-input');
+        const editCancelBtn = document.getElementById('edit-cancel-btn');
+        const editErrorMessage = document.getElementById('edit-error-message');
+        
+        // Notification elements
+        const notificationContainerLeft = document.getElementById('notification-container-left');
+        const notificationContainerRight = document.getElementById('notification-container-right');
 
-        // This path is still used internally but is no longer displayed.
         const PUBLIC_COLLECTION_PATH = `artifacts/${appId}/public/data/links`;
 
 
@@ -312,15 +428,41 @@
          * Shows a temporary notification pop-up.
          * @param {string} title - The title of the link.
          * @param {string} message - The notification message.
+         * @param {string} type - 'success' (right), 'pin' (left), or 'unpin' (left).
          */
-        function showNotification(title, message) {
-            // Create the notification element
+        function showNotification(title, message, type = 'success') {
+            let bgColor;
+            let icon;
+            let targetContainer;
+            let slideClass;
+
+            if (type === 'success') {
+                // Working Link (Right Side)
+                bgColor = 'bg-green-500'; 
+                icon = `<svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                targetContainer = notificationContainerRight;
+                slideClass = 'slide-right';
+            } else if (type === 'pin') {
+                // Pinned Link (Left Side)
+                bgColor = 'bg-yellow-500';
+                icon = `<svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.517 4.674h4.912c.974 0 1.371 1.258.588 1.81l-3.97 2.884 1.517 4.674c.3.921-.755 1.688-1.54 1.136l-3.97-2.884-3.97 2.884c-.785.552-1.84-.215-1.54-1.136l1.517-4.674-3.97-2.884c-.783-.552-.386-1.81.588-1.81h4.912l1.517-4.674z"></path></svg>`;
+                targetContainer = notificationContainerLeft;
+                slideClass = 'slide-left';
+            } else if (type === 'unpin') {
+                 // Unpinned Link (Left Side)
+                bgColor = 'bg-gray-500';
+                icon = `<svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`; 
+                targetContainer = notificationContainerLeft;
+                slideClass = 'slide-left';
+            } else {
+                return;
+            }
+
             const notification = document.createElement('div');
-            notification.className = 'notification';
-            // Added checkmark icon (tailwind/heroicons style)
+            notification.className = `notification ${bgColor} ${slideClass}`; 
             notification.innerHTML = `
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    ${icon}
                     <div>
                         <p class="font-bold">${title}</p>
                         <p class="text-sm">${message}</p>
@@ -328,26 +470,22 @@
                 </div>
             `;
             
-            // Append to container
-            notificationContainer.prepend(notification); // Use prepend for newest on top
+            targetContainer.prepend(notification); 
             
-            // Use setTimeout to trigger the transition (must wait for the element to be in the DOM)
             setTimeout(() => {
                 notification.classList.add('show');
             }, 10); 
 
-            // Set timeout for removal (e.g., 5 seconds)
             setTimeout(() => {
                 notification.classList.remove('show');
                 
-                // Wait for the exit transition to finish before removing from DOM
                 setTimeout(() => {
                     notification.remove();
-                }, 500); // Must match the CSS transition duration
-            }, 5000); // Show for 5 seconds
+                }, 500); 
+            }, 5000); 
         }
 
-        // --- Confirmation Modal Functions ---
+        // --- Confirmation Modal Functions (Deletion) ---
 
         function showConfirmationModal(title, callback) {
             currentDeleteCallback = callback;
@@ -360,27 +498,38 @@
             confirmationModal.classList.add('hidden');
         }
 
-        // Attach listeners to modal buttons
         confirmBtn.addEventListener('click', () => {
             if (currentDeleteCallback) {
-                // Execute the stored deletion function
                 currentDeleteCallback();
             } else {
-                // Should not happen, but hide modal if it does
                 hideConfirmationModal();
             }
         });
 
         cancelBtn.addEventListener('click', hideConfirmationModal);
+        
+        // --- Edit Modal Functions ---
+        
+        function showEditModal(id, title, url) {
+            editLinkIdInput.value = id;
+            editLinkTitleInput.value = title;
+            editLinkUrlInput.value = url;
+            editErrorMessage.textContent = '';
+            editModal.classList.remove('hidden');
+        }
+        
+        function hideEditModal() {
+            editModal.classList.add('hidden');
+        }
+        
+        editCancelBtn.addEventListener('click', hideEditModal);
+        editLinkForm.addEventListener('submit', handleEditLinkSubmit);
 
 
         // --- Network Helper Functions ---
         const MAX_RETRIES = 3;
         const DELAY_MS = 1000;
 
-        /**
-         * Retries a fetch request using exponential backoff.
-         */
         async function fetchWithRetry(url, options, retries = 0) {
             try {
                 return await fetch(url, options);
@@ -395,10 +544,6 @@
             }
         }
 
-        /**
-         * Fetches the link status using a CORS proxy.
-         * The status will be either "Working" or "Not Working" (for all failures).
-         */
         async function checkLinkStatus(url) {
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             const controller = new AbortController();
@@ -413,22 +558,16 @@
                 if (response.ok) { 
                     status = "Working";
                 } else {
-                    // All failed HTTP responses (4xx, 5xx) show "Not Working"
                     status = "Not Working"; 
                 }
             } catch (error) {
                 clearTimeout(timeout);
                 console.error("Link check failed completely (Network/Proxy/CORS issue):", url, error);
-                // Use only "Not Working" for network errors
                 status = "Not Working"; 
             }
             return { status };
         }
         
-        /**
-         * Attempts to load the URL as an image and updates the UI accordingly.
-         * The Image Preview container is only shown on successful image load.
-         */
         function checkAndDisplayImage(linkId, url) {
             const container = document.getElementById(`image-preview-area-${linkId}`);
             const imgElement = document.getElementById(`image-${linkId}`);
@@ -436,49 +575,32 @@
 
             if (!container || !imgElement || !statusElement) return;
 
-            // FIX: Use the CORS proxy URL to bypass cross-origin restrictions
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             
-            // Start by hiding the entire container
             container.classList.add('hidden'); 
 
-            // Clear previous states
             imgElement.src = '';
             statusElement.textContent = '';
             statusElement.classList.add('hidden');
 
             const img = new Image();
-            // crossOrigin must be set to 'anonymous' when fetching proxied content
             img.crossOrigin = "anonymous"; 
             
-            // Success handler: Image loaded (only fires if the proxy load is successful)
             img.onload = function() {
-                // Set the DOM element's source to the PROXIED URL
                 imgElement.src = proxyUrl; 
-                // ONLY show the container if the image loads successfully
                 container.classList.remove('hidden'); 
             };
 
-            // Error handler: Image failed to load (404, not an image, or failed via proxy)
             img.onerror = function() {
-                // If it fails, keep the container hidden.
                 console.log(`Image failed to load for link ${linkId}. Keeping preview bar hidden.`);
             };
             
-            // Attempt to load the image using the PROXIED URL
             img.src = proxyUrl; 
         }
 
-        /**
-         * Formats a Firestore Timestamp or Date object into a readable global time string (UTC).
-         */
         function formatGlobalTime(timestamp) {
             if (!timestamp) return '';
-
-            // Firestore Timestamps are usually objects with a toDate() method
             const date = timestamp.toDate ? timestamp.toDate() : timestamp; 
-            
-            // Format as a simple, clear global time (UTC)
             return date.toUTCString();
         }
 
@@ -491,32 +613,24 @@
             const title = link.title || 'Untitled Link';
             const status = link.status || 'Checking...'; 
             const workingAt = link.workingAt; 
-            // NEW: Starred status
             const isStarred = link.isStarred || false;
 
             const existingItem = document.getElementById(`link-item-${linkId}`);
             
-            // Determine re-checking state based purely on document status
             const isChecking = status === 'Checking...';
             
             // --- Status Badge Classes ---
             let badgeClasses = 'text-sm px-3 py-1 rounded-full font-bold shadow-sm flex items-center gap-1';
             let statusText = status;
             
-            // 1. Check for failure (must be exactly 'Not Working')
             if (status === "Not Working") { 
-                // Failure case: Apply red badge
                 badgeClasses += ' bg-red-100 text-red-700 border border-red-700';
             } 
-            // 2. Check for success (must be exactly 'Working')
             else if (status === "Working") { 
-                // Success case: Apply green badge with pulsing effect
                 badgeClasses += ' bg-green-100 text-green-700 border border-green-700 pulse-shadow-success';
             } 
-            // 3. Default (Checking...) - Thai Blue Theme
             else { 
                 badgeClasses += ' bg-[#d9dee8] text-[#241F4D] border-[#241F4D]'; 
-                // If status is "Checking...", show the spinner (Thai Blue)
                 statusText = `<div class="spinner badge-spinner !border-l-[#241F4D]"></div> ${status}`; 
             }
 
@@ -526,21 +640,16 @@
                 : '';
                 
             // --- Re-check Button Logic (Thai Red Theme) ---
-            // The button will be disabled and styled as rechecking if the process is active
             const recheckBtnClasses = isChecking 
                 ? 'rechecking-btn px-3 py-1 rounded-lg text-sm font-medium transition duration-150 flex-shrink-0 shadow-sm' 
                 : 'recheck-btn text-sm font-medium text-[#A51931] hover:bg-[#f2e7e9] px-3 py-1 rounded-lg border border-[#A51931] transition duration-150 flex-shrink-0 shadow-sm';
             
             const recheckBtnContent = isChecking
-                // Re-check spinner uses Thai Blue
                 ? `Re-checking... <div class="spinner badge-spinner !w-4 !h-4 !border-l-[#241F4D] ml-2"></div>`
                 : `Re-check`;
                 
-            // The button is disabled if the process is active
             const recheckBtnDisabled = isChecking ? 'disabled' : '';
 
-            // --- Conditionally Render Re-check Button ---
-            // Do NOT render the Re-check button if the status is currently 'Checking...'
             const recheckButtonHTML = isChecking ? '' : `
                 <button 
                     data-id="${linkId}" 
@@ -555,7 +664,7 @@
             // --- Star Button Logic ---
             const starColor = isStarred ? 'text-yellow-500' : 'text-gray-400';
             const starFill = isStarred ? 'currentColor' : 'none';
-            const starStroke = 'currentColor'; // Always use currentColor for stroke/border
+            const starStroke = 'currentColor'; 
             
             const starButtonHTML = `
                 <button 
@@ -571,11 +680,23 @@
                     </svg>
                 </button>
             `;
+            
+            // --- Edit Button ---
+            const editButtonHTML = `
+                <button 
+                    data-id="${linkId}" 
+                    data-title="${title}"
+                    data-url="${url}"
+                    class="edit-btn text-sm font-medium text-gray-700 hover:bg-gray-100 px-3 py-1 rounded-lg border border-gray-400 transition duration-150 flex-shrink-0 shadow-sm"
+                    title="Edit Link Title and URL"
+                >
+                    Edit
+                </button>
+            `;
 
 
             const item = existingItem || document.createElement('div');
             item.id = `link-item-${linkId}`;
-            // Link border uses Thai Blue accent for un-starred links
             item.className = `bg-white p-5 rounded-xl shadow-lg flex flex-col gap-4 border-l-4 ${isStarred ? 'border-yellow-500' : 'border-[#241F4D]'}`; 
             
             item.innerHTML = `
@@ -602,6 +723,7 @@
                             <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-green-700 hover:bg-green-100 px-3 py-1 rounded-lg border border-green-700 transition duration-150 flex-shrink-0 shadow-sm">
                                 Open
                             </a>
+                            ${editButtonHTML} 
                             ${recheckButtonHTML}
                             <button data-id="${linkId}" data-title="${title}" class="remove-btn text-sm font-medium text-red-700 hover:bg-red-100 px-3 py-1 rounded-lg border border-red-700 transition duration-150 flex-shrink-0 shadow-sm">
                                 Remove
@@ -619,7 +741,6 @@
             
             // --- Conditional Image Load Logic ---
             if (status === "Working") {
-                // Use a slight delay to ensure the DOM elements are fully available 
                 setTimeout(() => {
                     checkAndDisplayImage(linkId, url);
                 }, 10);
@@ -628,9 +749,6 @@
             return item;
         }
 
-        /**
-         * Normalizes a URL, adding 'https://' if no protocol is present.
-         */
         function normalizeUrl(url) {
             let normalized = url.trim();
             if (!/^https?:\/\//i.test(normalized)) {
@@ -641,29 +759,23 @@
 
         // --- Core Link Check & Update Function ---
 
-        /**
-         * Checks a link's status and updates the Firestore document.
-         * @param {string} id - Document ID.
-         * @param {string} url - The URL to check.
-         * @param {string} title - The link title (used for notification).
-         */
         async function checkAndUpdateLinkStatus(id, url, title) {
             const linkDocRef = doc(db, PUBLIC_COLLECTION_PATH, id);
             
             // 1. Fetch current status for comparison (Crucial for notification)
             const docSnap = await getDoc(linkDocRef);
-            // Get the current status from the database before update
             const oldStatus = docSnap.exists() ? docSnap.data().status : 'Not Found';
             
             // 2. Immediately set status to "Checking..."
             try {
+                // IMPORTANT: We only update if the old status was NOT 'Working' to begin with, 
+                // but the check is still needed if a user manually clicks 'Re-check'
                 await updateDoc(linkDocRef, {
                     status: 'Checking...',
                     workingAt: null // Clear previous working time
                 });
             } catch (error) {
                  console.error(`Error setting status to 'Checking...' for link ${id}:`, error);
-                 // Crucial: We must stop here if we can't update to "Checking..."
                  return; 
             }
 
@@ -678,9 +790,8 @@
                     updateData.workingAt = new Date(); 
                     
                     // --- Notification Logic ---
-                    // Check if the link transitioned from a NON-WORKING state to a WORKING state
                     if (oldStatus !== "Working") {
-                        showNotification(title, "Link is now WORKING!");
+                        showNotification(title, "Link is now WORKING!", 'success'); 
                     }
                     
                 } else {
@@ -692,7 +803,6 @@
                 
             } catch (error) {
                 console.error(`Error processing or updating document status for link ${id}: `, error);
-                // Use only "Not Working" for any final failure
                 await updateDoc(linkDocRef, { status: "Not Working", workingAt: null });
                 if (error.code === "permission-denied" || error.message.includes("permissions")) {
                     errorMessage.innerHTML = `
@@ -703,17 +813,19 @@
         }
         
         // --- Function to toggle star status ---
-        /**
-         * Updates the isStarred field in Firestore.
-         * @param {string} id - Document ID.
-         * @param {boolean} newStarredStatus - The new starred status.
-         */
-        async function toggleStarStatus(id, newStarredStatus) {
+        async function toggleStarStatus(id, newStarredStatus, title) {
             const linkDocRef = doc(db, PUBLIC_COLLECTION_PATH, id);
             try {
                 await updateDoc(linkDocRef, {
                     isStarred: newStarredStatus,
                 });
+                
+                if (newStarredStatus === true) {
+                    showNotification(title, "Link has been Pinned!", 'pin');
+                } else {
+                    showNotification(title, "Link has been Unpinned.", 'unpin');
+                }
+
             } catch (error) {
                 console.error("Error toggling star status: ", error);
                 if (error.code === "permission-denied" || error.message.includes("permissions")) {
@@ -725,13 +837,86 @@
                 }
             }
         }
+        
+        // --- Function to handle link editing/saving ---
+        async function handleEditLinkSubmit(e) {
+            e.preventDefault();
+            editErrorMessage.textContent = '';
+            
+            const id = editLinkIdInput.value;
+            const newTitle = editLinkTitleInput.value.trim();
+            const newUrl = editLinkUrlInput.value.trim();
+            
+            const saveButton = editLinkForm.querySelector('button[type="submit"]');
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+
+            if (!newTitle) {
+                editErrorMessage.textContent = 'Please enter a Link Title.';
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
+                return;
+            }
+            if (!newUrl) {
+                editErrorMessage.textContent = 'Please enter a URL.';
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
+                return;
+            }
+            
+            let normalizedNewUrl;
+            try {
+                normalizedNewUrl = normalizeUrl(newUrl);
+                new URL(normalizedNewUrl); 
+            } catch (_) {
+                editErrorMessage.textContent = 'Please enter a valid URL (e.g., https://example.com)';
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
+                return;
+            }
+            
+            const originalLink = linksDataCache.find(l => l.id === id);
+            const originalUrl = originalLink ? normalizeUrl(originalLink.url) : normalizedNewUrl;
+            
+            const urlChanged = originalUrl !== normalizedNewUrl;
+
+            const linkDocRef = doc(db, PUBLIC_COLLECTION_PATH, id);
+            
+            try {
+                // 1. Update title and URL in Firestore
+                await updateDoc(linkDocRef, {
+                    title: newTitle,
+                    url: normalizedNewUrl,
+                });
+                
+                // 2. If the URL changed, trigger a re-check
+                if (urlChanged) {
+                    await checkAndUpdateLinkStatus(id, normalizedNewUrl, newTitle);
+                    showNotification(newTitle, "Link updated and re-check initiated!", 'success');
+                } else {
+                    showNotification(newTitle, "Link details saved!", 'success');
+                }
+
+                hideEditModal();
+
+            } catch (error) {
+                console.error("Error updating link in Firestore: ", error);
+                 if (error.code === "permission-denied" || error.message.includes("permissions")) {
+                    editErrorMessage.innerHTML = `
+                        Failed to save link changes. (Permission Denied).
+                    `;
+                } else {
+                    editErrorMessage.textContent = 'Failed to save changes. Check console for details.';
+                }
+            } finally {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
+            }
+        }
 
 
         // --- Event Handlers ---
 
-        /**
-         * Handles adding a new link.
-         */
         async function handleAddLink(e) {
             e.preventDefault();
             errorMessage.textContent = '';
@@ -739,12 +924,8 @@
             const title = linkTitleInput.value.trim();
             const url = linkUrlInput.value.trim();
 
-            if (!title) {
-                errorMessage.textContent = 'Please enter a Link Title.';
-                return;
-            }
-            if (!url) {
-                errorMessage.textContent = 'Please enter a URL.';
+            if (!title || !url) {
+                errorMessage.textContent = 'Please enter both a title and a URL.';
                 return;
             }
             
@@ -762,31 +943,26 @@
                 return;
             }
 
-            // Immediately disable the form while processing
             const submitButton = addLinkForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.textContent = 'Adding...';
 
 
             try {
-                // Initial data for Firestore: Set status to 'Checking...' 
                 const linkData = {
                     title: title,
                     url: normalizedUrl,
                     createdAt: new Date(),
                     status: 'Checking...', 
                     workingAt: null, 
-                    isStarred: false, // NEW: Default to not starred
+                    isStarred: false, 
                 };
 
-                // Add the initial document.
                 const newDocRef = await addDoc(linksCollectionRef, linkData);
                 
-                // Clear inputs
                 linkTitleInput.value = '';
                 linkUrlInput.value = '';
                 
-                // Perform the check and final update
                 await checkAndUpdateLinkStatus(newDocRef.id, normalizedUrl, title);
 
             } catch (error) {
@@ -799,34 +975,40 @@
                     errorMessage.textContent = 'Failed to save link. Check console for details.';
                 }
             } finally {
-                // Re-enable form regardless of success/failure
                 submitButton.disabled = false;
                 submitButton.textContent = 'Add Link';
             }
         }
 
-        /**
-         * Handles clicks on "Remove", "Re-check", or "Star" buttons.
-         */
         async function handleListClick(e) {
             const target = e.target;
             
             const docPath = PUBLIC_COLLECTION_PATH; 
 
+            // --- Handle Edit ---
+            const editBtn = target.closest('.edit-btn');
+            if (editBtn) {
+                const id = editBtn.dataset.id;
+                const title = editBtn.dataset.title;
+                const url = editBtn.dataset.url;
+                
+                if (id && title && url) {
+                    showEditModal(id, title, url);
+                }
+                return;
+            }
+
             // --- Handle Star Toggle ---
             const starBtn = target.closest('.star-toggle-btn');
             if (starBtn) {
                 const id = starBtn.dataset.id;
-                // Get the current status from the data attribute (which is a string)
+                const title = starBtn.dataset.title; 
                 const currentStatusString = starBtn.dataset.isStarred; 
-                // Convert string "true" to boolean true
                 const isCurrentlyStarred = currentStatusString === 'true'; 
                 const newStatus = !isCurrentlyStarred;
                 
-                // Call the Firestore update function
-                await toggleStarStatus(id, newStatus);
+                await toggleStarStatus(id, newStatus, title);
                 
-                // Stop further processing
                 return;
             }
 
@@ -834,15 +1016,13 @@
             // --- Handle Remove (uses the custom modal) ---
             if (target.classList.contains('remove-btn')) {
                 const id = target.dataset.id;
-                const title = target.dataset.title; // Get the title of the link
+                const title = target.dataset.title; 
                 if (!id || !title) return;
                 
-                // Show confirmation modal instead of deleting immediately
                 showConfirmationModal(title, async () => {
                     try {
-                        // Perform deletion if confirmed
                         await deleteDoc(doc(db, docPath, id));
-                        hideConfirmationModal(); // Hide modal on successful deletion
+                        hideConfirmationModal(); 
                     } catch (error) {
                         console.error("Error removing document: ", error);
                         if (error.code === "permission-denied" || error.message.includes("permissions")) {
@@ -852,70 +1032,62 @@
                         } else {
                             errorMessage.textContent = 'Failed to remove link. Check console for details.';
                         }
-                        hideConfirmationModal(); // Hide modal even on failure
+                        hideConfirmationModal(); 
                     }
                 });
 
-                // Stop execution here, the deletion happens in the modal's confirm callback
                 return;
             }
 
             // --- Handle Re-check ---
-            // Use closest to ensure we capture clicks on the spinner inside the button too
             const recheckBtn = target.closest('.recheck-btn'); 
             if (recheckBtn) {
                 const id = recheckBtn.dataset.id;
                 const url = recheckBtn.dataset.url;
                 if (!id || !url) return;
                 
-                // Find the link title from the cache
                 const link = linksDataCache.find(l => l.id === id);
                 const title = link ? link.title : 'Link';
                 
-                // Use the refactored function
                 await checkAndUpdateLinkStatus(id, url, title);
             }
         }
         
-        // --- Function to check all links on initial load ---
-        /**
-         * Executes a one-time full check on ALL links when the page loads/user is authenticated.
-         */
+        // --- Function to check all links on initial load (Updated for Request 2) ---
         async function autoCheckAllLinksOnLoad() {
-            console.log(`[Initial Load Check] Starting full check for ${linksDataCache.length} links...`);
+            // Filter for links that are NOT 'Working'
+            const linksToRecheck = linksDataCache.filter(link => 
+                link.status !== 'Working'
+            );
+            
+            console.log(`[Initial Load Check] Starting check for ${linksToRecheck.length} non-working links simultaneously...`);
 
-            if (linksDataCache.length === 0) {
-                console.log("[Initial Load Check] No links found to check.");
+            if (linksToRecheck.length === 0) {
+                console.log("[Initial Load Check] No non-working links found to check.");
                 return;
             }
             
-            // Execute checks sequentially to avoid overwhelming the proxy/network
-            for (const link of linksDataCache) {
-                console.log(`[Initial Load Check] Checking: ${link.title} (${link.id})`);
-                // Check ALL links, even if they are currently marked 'Working'
-                await checkAndUpdateLinkStatus(link.id, link.url, link.title); 
-                // Small delay to space out requests
-                await new Promise(resolve => setTimeout(resolve, 500)); 
-            }
+            const checkPromises = linksToRecheck.map(link => {
+                console.log(`[Initial Load Check] Queuing check for: ${link.title} (${link.id})`);
+                return checkAndUpdateLinkStatus(link.id, link.url, link.title);
+            });
+            
+            await Promise.all(checkPromises);
+
             console.log("[Initial Load Check] Full check complete.");
         }
 
 
         /**
-         * Iterates through cached links and re-checks those that are NOT 'Working'.
-         * This function is used for the periodic 5-minute check.
+         * Iterates through cached links and re-checks those that are NOT 'Working' or 'Checking...' (Request 2).
          */
         async function autoRecheckNonWorkingLinks() {
-            console.log(`[Auto-Recheck] Starting periodic check for ${linksDataCache.length} links...`);
-
-            // Use a set to track IDs that are currently being checked to prevent duplicate checks
-            const activeChecks = new Set();
+            console.log(`[Auto-Recheck] Starting periodic check...`);
             
-            // Filter for links that are not currently 'Working' and not already being checked
+            // Filter for links that are NOT 'Working' and NOT 'Checking...'
             const linksToRecheck = linksDataCache.filter(link => 
-                !link.status || 
-                // Only recheck if status is "Not Working" or if it is stuck on "Checking..." 
-                (link.status !== 'Working' && link.status !== 'Checking...')
+                link.status !== 'Working' && 
+                link.status !== 'Checking...'
             );
             
             if (linksToRecheck.length === 0) {
@@ -923,21 +1095,15 @@
                 return;
             }
 
-            console.log(`[Auto-Recheck] Found ${linksToRecheck.length} links to re-check.`);
+            console.log(`[Auto-Recheck] Found ${linksToRecheck.length} links to re-check. Checking them in parallel.`);
             
-            // Execute checks sequentially to avoid overwhelming the proxy/network
-            for (const link of linksToRecheck) {
-                // Re-check only if the ID isn't already in the active checks set
-                if (!activeChecks.has(link.id)) {
-                    activeChecks.add(link.id);
-                    console.log(`[Auto-Recheck] Checking: ${link.title} (${link.id})`);
-                    // The checkAndUpdateLinkStatus handles setting the status to 'Checking...' first,
-                    // which prevents another auto-recheck from picking it up immediately.
-                    await checkAndUpdateLinkStatus(link.id, link.url, link.title); 
-                    // Small delay to space out requests
-                    await new Promise(resolve => setTimeout(resolve, 500)); 
-                }
-            }
+            const checkPromises = linksToRecheck.map(link => {
+                console.log(`[Auto-Recheck] Queuing check for: ${link.title} (${link.id})`);
+                return checkAndUpdateLinkStatus(link.id, link.url, link.title);
+            });
+            
+            await Promise.all(checkPromises);
+
             console.log("[Auto-Recheck] Periodic check complete.");
         }
         
@@ -969,51 +1135,63 @@
 
                 if (snapshot.empty) {
                     linksContainer.innerHTML = '<p class="text-gray-500 p-4 bg-white rounded-lg shadow-sm">No links added yet. Add one above!</p>';
+                    if (!initialLoadComplete) {
+                        initialLoadComplete = true;
+                    }
                     return;
                 }
 
-                // NEW: Sort: 1. Starred first (true > false). 2. Creation date descending (newest first)
+                // --- SORTING LOGIC (Priority: 1. Starred. 2. Working. 3. Creation date descending.) ---
                 dbLinks.sort((a, b) => {
                     const starA = a.isStarred ? 1 : 0;
                     const starB = b.isStarred ? 1 : 0;
-                    
-                    // Primary sort: Starred status (true first, so 1 > 0 is -1, 0 > 1 is 1)
+                    const workingA = a.status === 'Working' ? 1 : 0;
+                    const workingB = b.status === 'Working' ? 1 : 0;
+
+                    // 1. Starred status (Starred first)
                     if (starA !== starB) {
-                        return starB - starA; // Sort descending by star status
+                        return starB - starA; 
                     }
-                    
-                    // Secondary sort: Creation date descending (newest first)
+
+                    // 2. Working status (Working first) 
+                    if (workingA !== workingB) {
+                        return workingB - workingA;
+                    }
+
+                    // 3. Creation date descending (Newest first)
                     const timeA = a.createdAt?.toDate()?.getTime() || 0;
                     const timeB = b.createdAt?.toDate()?.getTime() || 0;
                     return timeB - timeA;
                 });
+                // --- END SORTING LOGIC ---
 
-                // Get current link IDs in the DOM
                 const existingDomIds = new Set(Array.from(linksContainer.children).map(child => child.id.replace('link-item-', '')));
 
                 dbLinks.forEach(link => {
                     const item = renderLink(link);
                     
-                    // If the item already exists in the DOM, replace it to ensure correct sorting/update
                     if (existingDomIds.has(link.id)) {
                         const existingItem = document.getElementById(`link-item-${link.id}`);
                         if (existingItem) {
-                            // Replace or update the item in place
                             linksContainer.replaceChild(item, existingItem);
                         }
                     } else {
-                        // Otherwise, append the new item 
                         linksContainer.appendChild(item); 
                     }
                 });
 
                 // Final sort after adding/updating all items to maintain order
-                // We re-sort the DOM nodes based on the already sorted dbLinks array
                 const sortedItems = dbLinks.map(link => document.getElementById(`link-item-${link.id}`)).filter(item => item);
                 
-                // Re-append sorted items in the correct order
                 sortedItems.forEach(item => linksContainer.appendChild(item));
-
+                
+                // Trigger Initial Check AFTER Data is Loaded (Fixed Race Condition)
+                if (!initialLoadComplete) {
+                    console.log("[Initial Load Check] First snapshot received. Starting full link check.");
+                    initialLoadComplete = true; 
+                    // autoCheckAllLinksOnLoad is updated to only check non-working links (Request 2)
+                    autoCheckAllLinksOnLoad(); 
+                }
 
             }, (error) => {
                 console.error("Error getting snapshot: ", error);
@@ -1047,41 +1225,30 @@
                 auth = getAuth(app);
                 setLogLevel('Debug');
 
-                // Sign-in logic
                 if (typeof __initial_auth_token !== 'undefined') {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
                 
-                // Set up the Authentication Listener
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
                         
-                        // Set the collection reference to the public path
                         linksCollectionRef = collection(db, PUBLIC_COLLECTION_PATH);
                         
-                        // Build user info display with adjusted formatting (Thai Blue background)
                         const authStatus = user.isAnonymous 
                             ? `<span class="bg-[#241F4D] text-white persistence-status">Storage: (Your Data is Saved Successfully)</span>`
                             : `<span class="bg-green-600 text-white persistence-status">Storage: (Your Data is Saved Successfully)</span>`;
 
-                        // Added max-w-full and text-wrap to ensure the user ID doesn't stretch the layout
                         userInfoDisplay.innerHTML = `${authStatus}<div class="text-xs mt-1 text-gray-500 font-mono break-all max-w-full">Current User ID: ${userId}</div>`;
                         
-                        // Setup form and list listeners
                         addLinkForm.addEventListener('submit', handleAddLink);
-                        // Listener now handles Star, Re-check, and Remove
                         linksContainer.addEventListener('click', handleListClick);
 
-                        // Start listening for saved data (updates linksDataCache)
                         setupSnapshotListener();
                         
-                        // 1. Immediately run a FULL check on all links on load (5s delay for Firestore load)
-                        setTimeout(autoCheckAllLinksOnLoad, 5000); 
-
-                        // 2. Set up the recurring 5-minute check for ONLY non-working links
+                        // Set up the recurring 1-minute check for ONLY non-working links
                         setInterval(autoRecheckNonWorkingLinks, AUTO_RECHECK_INTERVAL);
                         console.log(`[Auto-Recheck] Periodic check loop started. Interval: ${AUTO_RECHECK_INTERVAL / 1000} seconds.`);
 
