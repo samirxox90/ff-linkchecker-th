@@ -193,12 +193,12 @@
 
         /* --- Notification Styles (Base) --- */
         .notification {
-            color: white;
             padding: 1rem;
             border-radius: 0.5rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             opacity: 0;
-            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            /* Updated transition to be slower for a smoother fade/slide */
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out; 
             margin-top: 10px; /* Space between multiple notifications */
         }
         
@@ -207,33 +207,67 @@
             transform: translateX(-100%); 
         }
 
-        /* Slide in from RIGHT (Success) */
+        /* Slide in from RIGHT (Success/Working) */
         .notification.slide-right {
             transform: translateX(100%); 
         }
-
-        /* Show state (same for both slides, just sets transform: 0) */
-        .notification.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-
-        /* --- Notification Colors --- */
-        .notification.bg-green-500 {
-            /* Base for success notification (Working) */
-            background-color: #10b981; /* green-500 */
-        }
         
+        /* Notification Colors (Pin/Unpin) */
         .notification.bg-yellow-500 {
-            /* Base for pin notification */
             background-color: #f59e0b; /* yellow-500 (Gold/Pin theme) */
+            color: white;
         }
         
         .notification.bg-gray-500 {
-            /* Gray theme for unpin notification */
             background-color: #6b7280; /* gray-500 (Unpin theme) */
+            color: white;
         }
+        
+        /* --- AMAZING WORKING NOTIFICATION STYLE --- */
+        .notification-working {
+            background-color: white;
+            color: #10b981; /* green-500 text color */
+            border: 2px solid #10b981; /* Green Border */
+            /* Adjusted shadow to give a subtle green glow */
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.7); 
+        }
+        
+        /* Working Notification Pop-in animation */
+        @keyframes popInWorking {
+            0% { opacity: 0; transform: translateX(100%) scale(0.5); }
+            50% { opacity: 1; transform: translateX(-10px) scale(1.1); } /* Slight bounce over-shoot */
+            100% { opacity: 1; transform: translateX(0) scale(1); }
+        }
+
+        /* Working Notification Pulse/Glow animation */
+        @keyframes successGlow {
+            from { box-shadow: 0 0 15px rgba(16, 185, 129, 0.7); }
+            to { box-shadow: 0 0 25px rgba(16, 185, 129, 1); }
+        }
+
+        /* Show state (applies the final transform: translateX(0) but also applies the pop-in) */
+        .notification.show.slide-right {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        /* Override the basic slide for the working notification with the new pop-in */
+        .notification-working.show {
+             /* Combine pop-in and glow. Ensure glow starts after popIn is done. */
+             animation: popInWorking 0.5s ease-out forwards, successGlow 2s infinite 0.5s alternate; 
+        }
+        
+        /* Icon styles for the working notification */
+        .notification-working .success-icon {
+            background-color: #10b981; /* green-500 */
+            border-radius: 50%;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
     </style>
 </head>
 <body class="bg-gray-50 h-full text-gray-900">
@@ -241,12 +275,12 @@
         <header class="mb-10 pt-4">
             <div class="flex items-center gap-4">
                 <h1 class="text-4xl font-extrabold tracking-tight animated-title">FF Link Checker TH</h1>
-                <span id="version-display" class="version-text text-xl font-bold text-white px-2 py-1 rounded-md shadow-md">V1.2</span>
+                <span id="version-display" class="version-text text-xl font-bold text-white px-2 py-1 rounded-md shadow-md">V1.3</span>
             </div>
             <p class="text-lg text-gray-600 mt-2">
             <div id="user-info">Auth Status: Loading...</div>
             <div id="update-notice" class="update-notice text-sm font-semibold text-gray-700 mt-4 p-2 border-l-4 border-yellow-400 rounded-lg">
-                Next Update: Date Not Decided
+                Last Update: 15 Nov 2025
             </div>
         </header>
 
@@ -390,6 +424,9 @@
         let linksDataCache = []; 
         let initialLoadComplete = false; 
         
+        // Tracks which working links have been notified about for the current session
+        let notifiedWorkingLinks = new Set();
+        
         // The interval for the auto-recheck (Updated to 1 minute)
         const AUTO_RECHECK_INTERVAL = 60 * 1000; // 1 minute interval
 
@@ -423,7 +460,7 @@
         const PUBLIC_COLLECTION_PATH = `artifacts/${appId}/public/data/links`;
 
 
-        // --- Notification Function ---
+        // --- Notification Function (IMPROVED DESIGN & FIXED TIMING) ---
         /**
          * Shows a temporary notification pop-up.
          * @param {string} title - The title of the link.
@@ -432,26 +469,34 @@
          */
         function showNotification(title, message, type = 'success') {
             let bgColor;
-            let icon;
+            let iconHTML;
             let targetContainer;
             let slideClass;
+            let extraClass = '';
 
             if (type === 'success') {
-                // Working Link (Right Side)
-                bgColor = 'bg-green-500'; 
-                icon = `<svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                // Working Link (Right Side) - NEW DESIGN
+                bgColor = 'notification-working'; // White background, Green border/glow via CSS class
+                iconHTML = `
+                    <div class="success-icon flex-shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>`;
                 targetContainer = notificationContainerRight;
                 slideClass = 'slide-right';
+                extraClass = 'notification-working';
+
             } else if (type === 'pin') {
                 // Pinned Link (Left Side)
                 bgColor = 'bg-yellow-500';
-                icon = `<svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.517 4.674h4.912c.974 0 1.371 1.258.588 1.81l-3.97 2.884 1.517 4.674c.3.921-.755 1.688-1.54 1.136l-3.97-2.884-3.97 2.884c-.785.552-1.84-.215-1.54-1.136l1.517-4.674-3.97-2.884c-.783-.552-.386-1.81.588-1.81h4.912l1.517-4.674z"></path></svg>`;
+                iconHTML = `<svg class="w-6 h-6 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.517 4.674h4.912c.974 0 1.371 1.258.588 1.81l-3.97 2.884 1.517 4.674c.3.921-.755 1.688-1.54 1.136l-3.97-2.884-3.97 2.884c-.785.552-1.84-.215-1.54-1.136l1.517-4.674-3.97-2.884c-.783-.552-.386-1.81.588-1.81h4.912l1.517-4.674z"></path></svg>`;
                 targetContainer = notificationContainerLeft;
                 slideClass = 'slide-left';
             } else if (type === 'unpin') {
                  // Unpinned Link (Left Side)
                 bgColor = 'bg-gray-500';
-                icon = `<svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`; 
+                iconHTML = `<svg class="w-6 h-6 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`; 
                 targetContainer = notificationContainerLeft;
                 slideClass = 'slide-left';
             } else {
@@ -459,30 +504,40 @@
             }
 
             const notification = document.createElement('div');
-            notification.className = `notification ${bgColor} ${slideClass}`; 
+            notification.className = `notification ${bgColor} ${slideClass} ${extraClass}`; 
             notification.innerHTML = `
-                <div class="flex items-center">
-                    ${icon}
+                <div class="flex items-center gap-3">
+                    ${iconHTML}
                     <div>
-                        <p class="font-bold">${title}</p>
-                        <p class="text-sm">${message}</p>
+                        <p class="font-bold text-base">${title}</p>
+                        <p class="text-sm font-semibold">${message}</p>
                     </div>
                 </div>
             `;
             
             targetContainer.prepend(notification); 
             
+            const displayTime = 5000; // 5 seconds display time
+            const fadeTime = 500; // 0.5 seconds fade transition
+
+            // 1. Add 'show' class immediately to trigger the pop-in animation
             setTimeout(() => {
                 notification.classList.add('show');
             }, 10); 
 
+            // 2. Schedule the removal and fade out after the display time
             setTimeout(() => {
-                notification.classList.remove('show');
+                // Keep the 'show' class for the full duration to let the CSS animations run
                 
+                // Start the fade out (by removing 'show' and setting opacity to 0)
+                notification.classList.remove('show'); 
+                notification.style.opacity = '0'; 
+
+                // 3. Remove from DOM after fade-out transition completes
                 setTimeout(() => {
                     notification.remove();
-                }, 500); 
-            }, 5000); 
+                }, fadeTime); 
+            }, displayTime);
         }
 
         // --- Confirmation Modal Functions (Deletion) ---
@@ -568,6 +623,10 @@
             return { status };
         }
         
+        /**
+         * Checks the image availability and displays it for a specific link.
+         * This function is now called explicitly when a link is confirmed 'Working'.
+         */
         function checkAndDisplayImage(linkId, url) {
             const container = document.getElementById(`image-preview-area-${linkId}`);
             const imgElement = document.getElementById(`image-${linkId}`);
@@ -577,8 +636,8 @@
 
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             
+            // Start by hiding in case it was showing a broken image from a previous check
             container.classList.add('hidden'); 
-
             imgElement.src = '';
             statusElement.textContent = '';
             statusElement.classList.add('hidden');
@@ -593,10 +652,30 @@
 
             img.onerror = function() {
                 console.log(`Image failed to load for link ${linkId}. Keeping preview bar hidden.`);
+                // We keep it hidden if the image fails, no need to show an error message.
             };
             
             img.src = proxyUrl; 
         }
+
+        /**
+         * Loops through all cached links and triggers image preview for those that are 'Working'.
+         * This ensures image previews load only after bulk checking is done.
+         */
+        function displayImagesForWorkingLinks() {
+            // Wait briefly to ensure the DOM has been fully rendered by the onSnapshot listener 
+            // after the final DB updates from the bulk check.
+            setTimeout(() => { 
+                linksDataCache.forEach(link => {
+                    if (link.status === "Working") {
+                        // The renderLink function does not start the image check anymore, so we do it here.
+                        checkAndDisplayImage(link.id, link.url);
+                    }
+                });
+            }, 500); 
+            console.log("[Image Display] Triggered image loading for all working links.");
+        }
+
 
         function formatGlobalTime(timestamp) {
             if (!timestamp) return '';
@@ -606,6 +685,7 @@
 
         /**
          * Renders a single link item (full row) based on the Firestore data.
+         * The image check logic has been removed from here.
          */
         function renderLink(link) {
             const linkId = link.id;
@@ -739,12 +819,7 @@
                 </div>
             `;
             
-            // --- Conditional Image Load Logic ---
-            if (status === "Working") {
-                setTimeout(() => {
-                    checkAndDisplayImage(linkId, url);
-                }, 10);
-            } 
+            // --- REMOVED Conditional Image Load Logic from renderLink ---
 
             return item;
         }
@@ -779,9 +854,12 @@
                  return; 
             }
 
+            let newStatus;
+            
             try {
                 // 3. Fetch new status (takes a while)
-                const { status: newStatus } = await checkLinkStatus(url);
+                const { status: fetchedStatus } = await checkLinkStatus(url);
+                newStatus = fetchedStatus;
                 
                 let updateData = { status: newStatus };
 
@@ -789,9 +867,11 @@
                 if (newStatus === "Working") {
                     updateData.workingAt = new Date(); 
                     
-                    // --- Notification Logic ---
+                    // --- Notification Logic (Only for status CHANGE) ---
                     if (oldStatus !== "Working") {
                         showNotification(title, "Link is now WORKING!", 'success'); 
+                        // Ensure this link is marked as notified for the current session
+                        notifiedWorkingLinks.add(id); 
                     }
                     
                 } else {
@@ -800,6 +880,14 @@
 
                 // 5. Update Firestore document with final status and timestamp.
                 await updateDoc(linkDocRef, updateData); 
+                
+                // 6. NEW: Explicitly trigger image display for this single link if it's working
+                if (newStatus === "Working") {
+                    // Small delay to ensure the onSnapshot has re-rendered the DOM element first
+                    setTimeout(() => { 
+                        checkAndDisplayImage(id, url);
+                    }, 500);
+                }
                 
             } catch (error) {
                 console.error(`Error processing or updating document status for link ${id}: `, error);
@@ -1064,6 +1152,7 @@
 
             if (linksToRecheck.length === 0) {
                 console.log("[Initial Load Check] No non-working links found to check.");
+                displayImagesForWorkingLinks(); // NEW: Display images even if all are already working
                 return;
             }
             
@@ -1072,9 +1161,12 @@
                 return checkAndUpdateLinkStatus(link.id, link.url, link.title);
             });
             
-            await Promise.all(checkPromises);
+            await Promise.all(checkPromises); // Wait for all individual checks (and their DB updates) to complete
 
             console.log("[Initial Load Check] Full check complete.");
+            
+            // NEW: After all checks are done, display images for all working links.
+            displayImagesForWorkingLinks();
         }
 
 
@@ -1102,9 +1194,12 @@
                 return checkAndUpdateLinkStatus(link.id, link.url, link.title);
             });
             
-            await Promise.all(checkPromises);
+            await Promise.all(checkPromises); // Wait for all individual checks (and their DB updates) to complete
 
             console.log("[Auto-Recheck] Periodic check complete.");
+            
+            // NEW: After all checks are done, display images for all working links.
+            displayImagesForWorkingLinks();
         }
         
         /**
@@ -1188,8 +1283,19 @@
                 // Trigger Initial Check AFTER Data is Loaded (Fixed Race Condition)
                 if (!initialLoadComplete) {
                     console.log("[Initial Load Check] First snapshot received. Starting full link check.");
+                    
+                    // --- Single Logic for Initial Working Notification (FIXED 'Not Showing' Issue) ---
+                    dbLinks.filter(link => link.status === 'Working').forEach(link => {
+                        // Wait briefly for the DOM to settle, then show notification
+                        setTimeout(() => {
+                            showNotification(link.title, "Link is currently WORKING!", 'success');
+                            notifiedWorkingLinks.add(link.id); // Mark as notified for this page load
+                        }, 500); 
+                    });
+                    // --- END Single Logic ---
+
                     initialLoadComplete = true; 
-                    // autoCheckAllLinksOnLoad is updated to only check non-working links (Request 2)
+                    // Start the full check, which will trigger image display upon completion
                     autoCheckAllLinksOnLoad(); 
                 }
 
